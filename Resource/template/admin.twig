@@ -1,0 +1,44 @@
+{% extends '@admin/default_frame.twig' %}
+{% block title %}メール送信設定{% endblock %}
+{% block sub_title %}送信サーバー・送信履歴{% endblock %}
+{% block stylesheet %}<link rel="stylesheet" href="{{ path('cert_smtp_styles') }}">{% endblock %}
+{% block main %}
+<div class="card rounded border-0 mb-4"><div class="card-body">
+<h2 class="h4">メール送信設定</h2><p>注文やお問い合わせなどのメールを、どのメールサーバーから送るかを設定します。</p>
+{% for notice in app.flashes('cert_smtp_result') %}<p class="alert alert-info" role="status">{{ notice }}</p>{% endfor %}
+{% if error %}<p class="alert alert-warning">送信記録を取得できませんでした。少し時間をおいて画面を更新してください。</p>{% endif %}
+{% if config.configured %}<div class="alert alert-light border"><strong>現在の送信元：</strong>{{ config.sender_email }}<br><strong>メールサーバー：</strong>{{ config.host }}:{{ config.port }}{% if config.expires_at %}<br>証明書の期限（UTC）：{{ config.expires_at }}{% endif %}</div>{% else %}<p class="alert alert-warning">送信設定を確認できません。管理担当者へご連絡ください。</p>{% endif %}
+<p class="small text-muted">設定を追加しただけでは、現在の送信元は変わりません。追加・切替だけでメールが送られることもありません。無効にしても、すでに送信待ちのメールの内容は変わりません。</p>
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3"><h3 class="h5 mb-2">登録した送信設定</h3>{% if account_register_allowed %}<button class="btn btn-primary mb-2" type="button" data-bs-toggle="modal" data-bs-target="#smtp-account-modal">＋ メール送信サーバーを追加</button>{% endif %}</div>
+<div class="table-responsive"><table class="table"><thead><tr><th>設定名</th><th>送信元メールアドレス</th><th>メールサーバー</th><th>状態・操作</th></tr></thead><tbody>
+{% for account in accounts %}<tr><td>{{ account.label }}</td><td>{{ account.sender_email }}</td><td>{{ account.host }}:{{ account.port }}<br><small class="text-muted">{{ account.transport=='smtp'?'通常のメール送信':'クライアント証明書を使用' }} / {{ account.encryption=='tls'?'SSL/TLS':'STARTTLS' }}</small></td><td>
+{% if account.retired %}<span class="badge bg-light text-dark">以前の設定（メール履歴保持用）</span>{% elseif account.active %}<span class="badge bg-success">使用中</span>{% elseif not account.enabled %}<span class="badge bg-secondary">無効</span>{% elseif account_select_allowed %}<form method="post" action="{{ path('cert_smtp_account_select') }}"><input type="hidden" name="_token" value="{{ csrf_token('cert_smtp_accounts') }}"><input type="hidden" name="account_id" value="{{ account.id }}"><button class="btn btn-outline-primary btn-sm" type="submit">この設定を使う</button></form>{% else %}待機中{% endif %}
+{% if account_edit_allowed and not account.retired %}<a class="btn btn-outline-secondary btn-sm mt-2" href="{{ path('cert_smtp_account_edit',{'id':account.id}) }}">編集する</a>{% endif %}
+{% if not account.active and not account.retired and account_status_allowed %}<form method="post" action="{{ path('cert_smtp_account_status') }}" class="mt-2"><input type="hidden" name="_token" value="{{ csrf_token('cert_smtp_accounts') }}"><input type="hidden" name="account_id" value="{{ account.id }}"><input type="hidden" name="enabled" value="{{ account.enabled?'0':'1' }}"><button class="btn btn-link btn-sm p-0" type="submit">{{ account.enabled?'無効にする':'有効にする' }}</button></form>{% endif %}
+</td></tr>{% else %}<tr><td colspan="4">送信設定を取得できません。</td></tr>{% endfor %}</tbody></table></div>
+{% if account_register_allowed %}
+<div class="modal fade" id="smtp-account-modal" tabindex="-1" role="dialog" aria-labelledby="smtp-modal-title" aria-hidden="true"><div class="modal-dialog modal-lg" role="document"><div class="modal-content"><div class="modal-header"><h3 class="modal-title h5" id="smtp-modal-title">メール送信サーバーの新規登録</h3><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="閉じる"></button></div>
+<form method="post" action="{{ path('cert_smtp_account_register') }}" enctype="multipart/form-data" autocomplete="off"><div class="modal-body">
+<input type="hidden" name="_token" value="{{ csrf_token('cert_smtp_accounts') }}"><input type="hidden" name="MAX_FILE_SIZE" value="262144">
+{% include '@CertSmtp/account_fields.twig' %}
+</div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">閉じる</button><button class="btn btn-primary" type="submit">登録する</button></div></form></div></div></div>
+{% endif %}
+<h3 class="h5 mt-4">メールの送信状況</h3><p>「送信待ち」はこれから送るメールです。「メールサーバー受付済み」は、送信先のメールサーバーに渡せた状態です。</p>
+<div class="d-flex flex-wrap mb-3">{% for key,label in {'queued':'送信待ち','retry':'再試行待ち','accepted':'メールサーバー受付済み','failed':'要確認','uncertain':'結果の確認が必要'} %}<span class="badge bg-light text-dark border me-2 mb-2 p-2">{{ label }} {{ counts[key]|default(0) }}件</span>{% endfor %}</div>
+<p class="small text-muted">新しい設定へ切り替える前に、接続先を利用できるか確認してください。送信先側の受信箱に届いたかどうかは別の確認が必要です。<a href="{{ path('cert_smtp_settings') }}">表示を更新する</a></p>
+  <details class="mb-3"><summary>詳しい送信記録を開く（管理担当者向け）</summary><h3 class="mt-3">実行履歴（直近10件）</h3>
+  {% set labels = {'queued':'送信待ち','sending':'送信中','retry':'自動再送待ち','accepted':'SMTP受付済み','failed':'失敗・要対応','uncertain':'結果不明・再送停止'} %}
+  <div class="table-responsive"><table class="table"><thead><tr><th>登録／開始／終了（UTC）</th><th>状態</th><th>試行回数</th><th>詳細</th><th>操作</th></tr></thead><tbody>
+  {% for row in history %}<tr>
+    <td>{{ row.created_at|date('Y-m-d H:i:s','UTC') }}<br>{{ row.started_at ? row.started_at|date('Y-m-d H:i:s','UTC') : '未開始' }}<br>{{ row.finished_at ? row.finished_at|date('Y-m-d H:i:s','UTC') : '未完了' }}</td>
+    <td>{{ labels[row.state]|default(row.state) }}{% if row.state == 'retry' %}<br>次回：{{ row.due_at|date('Y-m-d H:i:s','UTC') }}{% endif %}</td>
+    <td>{{ row.attempts }}</td><td>{{ row.phase }} / {{ row.reason|default('—') }}{% if row.smtp_code %} / SMTP {{ row.smtp_code }}{% endif %}<br>{{ row.failure_class }} {{ row.failure_component }}{% if row.failure_line %}:{{ row.failure_line }}{% endif %}</td>
+    <td>{% if row.state == 'failed' and row.safe_retry and retry_allowed[row.id]|default(false) %}<form method="post" action="{{ path('cert_smtp_retry', {'id':row.id}) }}"><input type="hidden" name="_token" value="{{ csrf_token('cert_smtp_retry_' ~ row.id) }}"><button class="btn btn-warning" type="submit">原因対応後に再送予約</button></form>{% endif %}</td>
+  </tr>{% else %}<tr><td colspan="5">送信履歴はまだありません。</td></tr>{% endfor %}
+  </tbody></table></div>
+  <h3>試行ごとの記録（直近10件）</h3>
+  <ul>{% for row in attempts %}<li>{{ row.started_at|date('Y-m-d H:i:s','UTC') }} UTC ／ {{ labels[row.state]|default(row.state) }} ／ 試行{{ row.attempt }} ／ {{ row.phase }} ／ {{ row.reason|default('—') }}{% if row.smtp_code %} ／ SMTP {{ row.smtp_code }}{% endif %}</li>{% else %}<li>実行記録はまだありません。</li>{% endfor %}</ul>
+  <p>一時的な拒否・接続失敗は最大5試行。本文送信後の応答断は重複防止のため自動再送しません。TLS・認証・恒久的拒否は原因対応が必要です。</p>
+</details>
+</div></div>
+{% endblock %}

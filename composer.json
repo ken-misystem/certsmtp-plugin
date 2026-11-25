@@ -1,0 +1,28 @@
+{
+    "name": "yaruani/cert-smtp",
+    "description": "EC-CUBE certificate SMTP with encrypted durable outbox and bounded retries",
+    "version": "1.5.0-dev",
+    "type": "eccube-plugin",
+    "license": "MIT",
+    "require": {
+        "php": ">=8.1",
+        "ext-mbstring": "*",
+        "ext-openssl": "*",
+        "ext-pdo": "*",
+        "ext-pdo_sqlite": "*",
+        "ext-sodium": "*",
+        "symfony/mailer": "^6.4.49",
+        "symfony/mime": "^6.4.49"
+    },
+    "archive": {
+        "exclude": ["/tests/", "/tmp/", "/AGENTS.md", "/RELEASE_READINESS.md", "/SECURITY_AUDIT.md", "/.gitignore"]
+    },
+    "autoload": {
+        "psr-4": {
+            "Plugin\\CertSmtp\\": ""
+        }
+    },
+    "extra": {
+        "code": "CertSmtp"
+    }
+}

@@ -1,0 +1,42 @@
+parameters:
+    cert_smtp_config_default: ''
+    cert_smtp_require_worker_admission_default: '0'
+
+services:
+    Plugin\CertSmtp\Command\AccountCommand:
+        autoconfigure: false
+        arguments: ['@Plugin\CertSmtp\Resource\Runtime\Config']
+        tags: ['console.command']
+    Plugin\CertSmtp\Resource\Runtime\Config:
+        arguments:
+            $path: '%env(default:cert_smtp_config_default:CERT_SMTP_CONFIG)%'
+            $projectDir: '%kernel.project_dir%'
+            $debug: '%kernel.debug%'
+    Plugin\CertSmtp\Resource\Runtime\Store:
+        arguments: ['@Plugin\CertSmtp\Resource\Runtime\Config']
+    Plugin\CertSmtp\Resource\Runtime\DirectSender:
+        arguments: ['@Plugin\CertSmtp\Resource\Runtime\Config']
+    Plugin\CertSmtp\Resource\Runtime\QueueTransport:
+        arguments: ['@Plugin\CertSmtp\Resource\Runtime\Config', '@Plugin\CertSmtp\Resource\Runtime\Store']
+    Plugin\CertSmtp\Resource\Runtime\TransportFactory:
+        autoconfigure: false
+        arguments: ['@Plugin\CertSmtp\Resource\Runtime\QueueTransport']
+        tags: ['mailer.transport_factory']
+    Plugin\CertSmtp\Resource\Runtime\Worker:
+        arguments: ['@Plugin\CertSmtp\Resource\Runtime\Store', '@Plugin\CertSmtp\Resource\Runtime\DirectSender']
+    Plugin\CertSmtp\Command\WorkerCommand:
+        autoconfigure: false
+        arguments:
+            $worker: '@Plugin\CertSmtp\Resource\Runtime\Worker'
+            $requireAdmission: '%env(default:cert_smtp_require_worker_admission_default:CERT_SMTP_REQUIRE_WORKER_ADMISSION)%'
+            $admission: '@?Plugin\CertSmtp\Resource\Runtime\WorkerAdmission'
+        tags: ['console.command']
+    Plugin\CertSmtp\Command\StatusCommand:
+        autoconfigure: false
+        arguments: ['@Plugin\CertSmtp\Resource\Runtime\Config', '@Plugin\CertSmtp\Resource\Runtime\Store']
+        tags: ['console.command']
+    Plugin\CertSmtp\Controller\SettingsController:
+        autowire: true
+        autoconfigure: true
+        arguments: ['@Plugin\CertSmtp\Resource\Runtime\Config', '@Plugin\CertSmtp\Resource\Runtime\Store']
+        tags: ['controller.service_arguments']

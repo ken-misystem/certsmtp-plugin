@@ -1,0 +1,13 @@
+/* Scoped to the two CertSmtp settings pages; other admin pages keep their layout. */
+#page_cert_smtp_settings .c-container,
+#page_cert_smtp_account_edit .c-container { min-width: 0; }
+#page_cert_smtp_settings .card-body,
+#page_cert_smtp_account_edit .card-body { overflow-wrap: anywhere; }
+#page_cert_smtp_settings .row > *,
+#page_cert_smtp_account_edit .row > * { min-width: 0; }
+@media (max-width: 767px) {
+ #page_cert_smtp_settings .c-pageTitle__titles,
+ #page_cert_smtp_account_edit .c-pageTitle__titles { white-space: normal; }
+ #page_cert_smtp_settings .c-pageTitle__subTitle,
+ #page_cert_smtp_account_edit .c-pageTitle__subTitle { display: block; }
+}
